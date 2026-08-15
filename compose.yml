@@ -1,6 +1,9 @@
 services:
   proxy:
-    image: caddy:2.8-alpine
+    image: biloapp-caddy:${BILO_RELEASE_ID:-local}
+    build:
+      context: ./deploy
+      dockerfile: Dockerfile
     restart: unless-stopped
     ports:
       - "${BILO_HTTP_BIND:-0.0.0.0}:${BILO_HTTP_PORT:-80}:80"
@@ -8,7 +11,6 @@ services:
     environment:
       BILO_DOMAIN: ${BILO_DOMAIN:-:80}
     volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     networks:

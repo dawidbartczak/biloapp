@@ -1,0 +1,4 @@
+# The Caddy image only needs its image definition and configuration.
+*
+!Dockerfile
+!Caddyfile
