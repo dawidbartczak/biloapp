@@ -1,0 +1,7 @@
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/dawidbartczak/biloapp-frontend.git
+
+[submodule "backend"]
+	path = backend
+	url = https://github.com/dawidbartczak/biloapp-backend.git

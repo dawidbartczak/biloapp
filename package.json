@@ -1,0 +1,14 @@
+{
+  "name": "biloapp",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "scripts": {
+    "api:contract": "node scripts/build-openapi.mjs",
+    "api:generate": "pnpm api:contract && openapi-typescript contracts/openapi.yaml -o frontend/lib/api/openapi.generated.ts && node scripts/sync-openapi.mjs",
+    "api:check": "pnpm api:generate && git diff --exit-code -- contracts/openapi.yaml frontend/lib/api/openapi.generated.ts backend/contracts/openapi.yaml backend/contracts/openapi.sha256"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0"
+  }
+}
