@@ -51,6 +51,8 @@ const operations = [
   ["post", "/organizer/events/{id}/publish", "publishOrganizerEvent"],
   ["post", "/organizer/events/{id}/unpublish", "unpublishOrganizerEvent"],
   ["post", "/organizer/events/{id}/ticket-types", "createOrganizerTicketType"],
+  ["patch", "/organizer/events/{id}/ticket-types/{ticketTypeId}", "updateOrganizerTicketType"],
+  ["delete", "/organizer/events/{id}/ticket-types/{ticketTypeId}", "deleteOrganizerTicketType"],
   ["get", "/organizer/events/{id}/attendees", "listOrganizerEventAttendees"],
   ["get", "/organizer/events/{id}/attendees.csv", "exportOrganizerEventAttendees", "binary"],
   ["get", "/organizer/orders/{id}", "getOrganizerOrder"],
