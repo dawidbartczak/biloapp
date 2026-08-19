@@ -1,21 +1,65 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONTEXT_NAME="${BILO_DOCKER_CONTEXT:-biloapp-vps}"
-PROJECT_NAME="${BILO_COMPOSE_PROJECT:-biloapp}"
-ENV_FILE="${BILO_PRODUCTION_ENV_FILE:-.env.production}"
+if [[ "${BILO_SKIP_VERIFY:-}" == "1" ]]; then
+  echo "Skipping pre-deployment checks because BILO_SKIP_VERIFY=1." >&2
+else
+  ./deploy/verify.sh
+fi
 
-test -f "$ENV_FILE" || { echo "Missing production env file: $ENV_FILE" >&2; exit 1; }
-test -z "$(git status --porcelain)" || { echo "Deployment requires a clean integration checkout" >&2; exit 1; }
-git submodule foreach --quiet 'test -z "$(git status --porcelain)"' || {
-  echo "Deployment requires clean frontend and backend submodules" >&2
+release_id="$(date -u +%Y%m%dT%H%M%SZ)"
+containers=(bilo-proxy-1 bilo-frontend-1 bilo-backend-1)
+rollback_images=(biloapp-caddy:rollback biloapp-frontend:rollback biloapp-backend:rollback)
+existing_containers=0
+
+for container in "${containers[@]}"; do
+  if docker --context bilo container inspect "$container" >/dev/null 2>&1; then
+    existing_containers=$((existing_containers + 1))
+  fi
+done
+
+if (( existing_containers == ${#containers[@]} )); then
+  echo "Saving the current release as rollback..."
+  for index in "${!containers[@]}"; do
+    image_id="$(docker --context bilo container inspect --format '{{.Image}}' "${containers[$index]}")"
+    docker --context bilo image tag "$image_id" "${rollback_images[$index]}"
+  done
+  rollback_available=true
+elif (( existing_containers == 0 )); then
+  echo "First deployment: there is no previous release to save."
+  rollback_available=false
+else
+  echo "Cannot create a complete rollback: only $existing_containers of ${#containers[@]} application containers exist." >&2
   exit 1
-}
+fi
 
-docker --context "$CONTEXT_NAME" compose \
-  --project-name "$PROJECT_NAME" \
-  --env-file "$ENV_FILE" \
-  -f compose.yml \
-  -f compose.prod.yml up -d --build
+echo "Deploying release $release_id..."
+if ! BILO_IMAGE_TAG="$release_id" BILO_RELEASE_ID="$release_id" \
+  ./deploy/compose-context.sh \
+  up -d --build --wait --wait-timeout 180 2>&1 | tee /tmp/bilo-deploy.log; then
+  echo "Deployment failed." >&2
+  if [[ "$rollback_available" == true ]]; then
+    echo "Restoring the previous release..." >&2
+    ./deploy/rollback.sh || echo "Automatic rollback also failed. Check the containers manually." >&2
+  fi
+  exit 1
+fi
 
-"$(dirname "$0")/health.sh"
+if ! BILO_IMAGE_TAG="$release_id" BILO_RELEASE_ID="$release_id" ./deploy/health.sh; then
+  echo "Health check failed." >&2
+  if [[ "$rollback_available" == true ]]; then
+    echo "Restoring the previous release..." >&2
+    ./deploy/rollback.sh || echo "Automatic rollback also failed. Check the containers manually." >&2
+  fi
+  exit 1
+fi
+
+for repository in biloapp-caddy biloapp-frontend biloapp-backend; do
+  while IFS= read -r tag; do
+    if [[ "$tag" != "$release_id" && "$tag" != rollback && "$tag" != "<none>" ]]; then
+      docker --context bilo image rm "$repository:$tag" >/dev/null 2>&1 || true
+    fi
+  done < <(docker --context bilo image ls "$repository" --format '{{.Tag}}')
+done
+
+echo "Release $release_id deployed successfully."

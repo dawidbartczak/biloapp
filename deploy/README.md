@@ -1,29 +1,35 @@
 # VPS deployment
 
-## Host preparation
+All commands are run locally from the repository root. Docker reaches the VPS through the `bilo` SSH context.
 
-Create an unprivileged `deploy` account, install Docker Engine with Compose V2, authorize only an SSH key for that account and allow inbound TCP ports `22`, `80` and `443`. Do not expose PostgreSQL or Docker TCP (`2375`). Point the domain A/AAAA records at the VPS and create `/srv/biloapp` owned by `deploy`.
-
-Keep `.env.production`, release pointer files and encrypted database backups only on the VPS. Test restoring a backup before relying on it. A scheduled backup should run `deploy/backup.sh`, copy the resulting encrypted artifact off-host and enforce a documented retention period.
-
-## Docker context
-
-Create the remote Docker context over SSH:
-
-```bash
-docker context create biloapp-vps --docker "host=ssh://deploy@HOST"
-docker --context biloapp-vps info
-docker --context biloapp-vps ps
-```
-
-Deploy only pushed commits from a clean recursive checkout. Record the current release env as `.env.release.previous`, run `deploy/backup.sh`, execute `deploy/migrate.sh`, and then deploy:
+Deploy:
 
 ```bash
 ./deploy/deploy.sh
 ```
 
-Keep production env files and PostgreSQL backups on the VPS. Never expose PostgreSQL or Docker API port `2375` publicly.
+The script first runs `deploy/verify.sh`, which typechecks the backend and runs the frontend token, typecheck, lint and contract-test suites against the submodules that are about to be built. A failing check aborts before anything is built. Set `BILO_SKIP_VERIFY=1` only to ship an emergency fix, and set `BILO_FRONTEND_DIR` and `BILO_BACKEND_DIR` when verifying sibling working copies instead of the submodules.
 
-Run `./deploy/backup.sh` before risky migrations, `./deploy/migrate.sh` for explicit Prisma deployment, `./deploy/smoke.sh` after rollout and `./deploy/rollback.sh` with a previously saved release env file when rollback is required.
+The script then generates one UTC release ID, builds the frontend, backend and Caddy images with that tag, waits for healthy containers and runs public smoke tests. Before replacing an existing release, it saves all three running images under the `rollback` tag. If deployment or health checks fail, the previous images are restored automatically. After success, obsolete tags for these three images are removed; the current version, rollback slot and reusable build cache remain.
 
-`BILO_FRONTEND_REVISION` and `BILO_BACKEND_REVISION` must contain the deployed submodule SHAs. The Compose image names are tagged with those values. A database migration that is not backward-compatible requires its own restore-tested rollback procedure; switching images alone does not undo schema changes.
+Manual rollback:
+
+```bash
+./deploy/rollback.sh
+```
+
+`.env.production` contains production configuration and secrets, but no release numbers. `deploy/compose-context.sh` supplies the Docker context, project name and Compose files shared by the scripts.
+
+Useful checks:
+
+```bash
+./deploy/health.sh
+./deploy/smoke.sh
+./deploy/backup.sh
+./deploy/migrate.sh
+./deploy/maintenance.sh
+```
+
+The VPS user `bilo` has a five-minute cron that runs the same maintenance endpoint inside `bilo-backend-1`. That sweep is the backstop for delayed Stripe settlement (P24): if `charge.updated` is lost, a paid `PENDING` order is fulfilled from the deferral audit trail instead of being left ticketless.
+
+The rollback slot appears only after a successful application stack already exists. It restores application images, not PostgreSQL data or schema. Run a tested database backup before an incompatible migration; `deploy.sh` intentionally does not run migrations automatically.
