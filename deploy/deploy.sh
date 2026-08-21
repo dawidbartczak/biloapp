@@ -12,6 +12,11 @@ containers=(bilo-proxy-1 bilo-frontend-1 bilo-backend-1)
 rollback_images=(biloapp-caddy:rollback biloapp-frontend:rollback biloapp-backend:rollback)
 existing_containers=0
 
+if ! docker --context bilo info >/dev/null 2>&1; then
+  echo "Cannot reach the production Docker context 'bilo'. No deployment action was taken." >&2
+  exit 1
+fi
+
 for container in "${containers[@]}"; do
   if docker --context bilo container inspect "$container" >/dev/null 2>&1; then
     existing_containers=$((existing_containers + 1))
@@ -33,10 +38,25 @@ else
   exit 1
 fi
 
+echo "Building release $release_id..."
+if ! BILO_IMAGE_TAG="$release_id" BILO_RELEASE_ID="$release_id" \
+  ./deploy/compose-context.sh build 2>&1 | tee /tmp/bilo-build.log; then
+  echo "Release build failed. The running containers were not changed." >&2
+  exit 1
+fi
+
+echo "Applying database migrations for release $release_id..."
+if ! BILO_IMAGE_TAG="$release_id" BILO_RELEASE_ID="$release_id" \
+  ./deploy/compose-context.sh \
+  run --rm backend ./node_modules/.bin/prisma migrate deploy 2>&1 | tee /tmp/bilo-migrate.log; then
+  echo "Database migration failed. The running containers were not changed." >&2
+  exit 1
+fi
+
 echo "Deploying release $release_id..."
 if ! BILO_IMAGE_TAG="$release_id" BILO_RELEASE_ID="$release_id" \
   ./deploy/compose-context.sh \
-  up -d --build --wait --wait-timeout 180 2>&1 | tee /tmp/bilo-deploy.log; then
+  up -d --no-build --wait --wait-timeout 180 2>&1 | tee /tmp/bilo-deploy.log; then
   echo "Deployment failed." >&2
   if [[ "$rollback_available" == true ]]; then
     echo "Restoring the previous release..." >&2
@@ -45,7 +65,10 @@ if ! BILO_IMAGE_TAG="$release_id" BILO_RELEASE_ID="$release_id" \
   exit 1
 fi
 
-if ! BILO_IMAGE_TAG="$release_id" BILO_RELEASE_ID="$release_id" ./deploy/health.sh; then
+if ! BILO_IMAGE_TAG="$release_id" BILO_RELEASE_ID="$release_id" ./deploy/health.sh || \
+  ! curl --fail --silent --show-error --retry 5 --retry-delay 2 --retry-all-errors \
+    --connect-timeout 5 --max-time 10 \
+    "${BILO_BASE_URL:-https://biloapp.pl}/api/v1/events?page=1" >/dev/null; then
   echo "Health check failed." >&2
   if [[ "$rollback_available" == true ]]; then
     echo "Restoring the previous release..." >&2
