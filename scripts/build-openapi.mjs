@@ -151,6 +151,11 @@ queryParameters.push(
   { name: "pageSize", in: "query", required: false, schema: { type: "integer", minimum: 1, maximum: 100 } }
 );
 
+const requestSchemaByOperationId = {
+  createOrganizerEvent: "#/components/schemas/OrganizerEventInput",
+  updateOrganizerEvent: "#/components/schemas/OrganizerEventUpdateInput"
+};
+
 const paths = {};
 for (const [method, path, operationId, kind] of operations) {
   const parameters = [...pathParameters(path), ...(method === "get" ? queryParameters : [])];
@@ -180,13 +185,60 @@ for (const [method, path, operationId, kind] of operations) {
             ? { type: "string", format: "binary" }
             : kind === "multipart"
               ? { $ref: "#/components/schemas/EventImageUpload" }
-              : { $ref: "#/components/schemas/TransportObject" }
+              : {
+                  $ref:
+                    requestSchemaByOperationId[operationId] ??
+                    "#/components/schemas/TransportObject"
+                }
         }
       }
     };
   }
   (paths[path] ??= {})[method] = operation;
 }
+
+const organizerEventRequired = [
+  "title",
+  "description",
+  "date",
+  "time",
+  "venueName",
+  "address",
+  "city",
+  "category",
+  "complaintsEmail",
+  "termsText",
+  "ticketSalesMode",
+  "maxTicketsPerOrder"
+];
+
+const organizerEventProperties = {
+  title: { type: "string", minLength: 3, maxLength: 160 },
+  description: { type: "string", minLength: 10, maxLength: 5000 },
+  date: { type: "string", format: "date" },
+  time: { type: "string", pattern: "^\\d{2}:\\d{2}$" },
+  venueName: { type: "string", minLength: 2, maxLength: 160 },
+  address: { type: "string", minLength: 3, maxLength: 240 },
+  city: { type: "string", minLength: 2, maxLength: 120 },
+  category: { type: "string", minLength: 1 },
+  contactEmail: { type: "string", format: "email" },
+  contactPhone: { type: "string", maxLength: 40 },
+  complaintsEmail: { type: "string", format: "email" },
+  ageRestriction: { type: "string", maxLength: 80 },
+  termsText: { type: "string", minLength: 20, maxLength: 20000 },
+  imageUrl: { type: "string" },
+  ticketSalesMode: {
+    type: "string",
+    enum: ["PARALLEL", "SEQUENTIAL_POOLS"]
+  },
+  maxTicketsPerOrder: {
+    description: "Accepted as a JSON integer or a decimal form string.",
+    oneOf: [
+      { type: "integer", minimum: 1, maximum: 10 },
+      { type: "string", pattern: "^(?:[1-9]|10)$" }
+    ]
+  }
+};
 
 const document = {
   openapi: "3.0.3",
@@ -251,6 +303,30 @@ const document = {
         type: "object",
         required: ["file"],
         properties: { file: { type: "string", format: "binary" } }
+      },
+      OrganizerEventInput: {
+        type: "object",
+        description:
+          "Organizer event input. Local date and time are always interpreted in Europe/Warsaw.",
+        additionalProperties: false,
+        required: ["mutationId", ...organizerEventRequired],
+        properties: {
+          mutationId: { type: "string", format: "uuid" },
+          ...organizerEventProperties
+        }
+      },
+      OrganizerEventUpdateInput: {
+        type: "object",
+        description:
+          "Organizer event update. Local date and time are always interpreted in Europe/Warsaw.",
+        additionalProperties: false,
+        required: ["expectedUpdatedAt", ...organizerEventRequired],
+        properties: {
+          expectedUpdatedAt: { type: "string", format: "date-time" },
+          criticalChangeAccepted: { type: "boolean" },
+          criticalChangeConfirmation: { type: "string" },
+          ...organizerEventProperties
+        }
       }
     }
   }

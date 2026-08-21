@@ -3018,7 +3018,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TransportObject"
+                "$ref": "#/components/schemas/OrganizerEventInput"
               }
             }
           }
@@ -3185,7 +3185,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TransportObject"
+                "$ref": "#/components/schemas/OrganizerEventUpdateInput"
               }
             }
           }
@@ -9875,6 +9875,228 @@
           "file": {
             "type": "string",
             "format": "binary"
+          }
+        }
+      },
+      "OrganizerEventInput": {
+        "type": "object",
+        "description": "Organizer event input. Local date and time are always interpreted in Europe/Warsaw.",
+        "additionalProperties": false,
+        "required": [
+          "mutationId",
+          "title",
+          "description",
+          "date",
+          "time",
+          "venueName",
+          "address",
+          "city",
+          "category",
+          "complaintsEmail",
+          "termsText",
+          "ticketSalesMode",
+          "maxTicketsPerOrder"
+        ],
+        "properties": {
+          "mutationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 160
+          },
+          "description": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 5000
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "time": {
+            "type": "string",
+            "pattern": "^\\d{2}:\\d{2}$"
+          },
+          "venueName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 160
+          },
+          "address": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 240
+          },
+          "city": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1
+          },
+          "contactEmail": {
+            "type": "string",
+            "format": "email"
+          },
+          "contactPhone": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "complaintsEmail": {
+            "type": "string",
+            "format": "email"
+          },
+          "ageRestriction": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "termsText": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 20000
+          },
+          "imageUrl": {
+            "type": "string"
+          },
+          "ticketSalesMode": {
+            "type": "string",
+            "enum": [
+              "PARALLEL",
+              "SEQUENTIAL_POOLS"
+            ]
+          },
+          "maxTicketsPerOrder": {
+            "description": "Accepted as a JSON integer or a decimal form string.",
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              {
+                "type": "string",
+                "pattern": "^(?:[1-9]|10)$"
+              }
+            ]
+          }
+        }
+      },
+      "OrganizerEventUpdateInput": {
+        "type": "object",
+        "description": "Organizer event update. Local date and time are always interpreted in Europe/Warsaw.",
+        "additionalProperties": false,
+        "required": [
+          "expectedUpdatedAt",
+          "title",
+          "description",
+          "date",
+          "time",
+          "venueName",
+          "address",
+          "city",
+          "category",
+          "complaintsEmail",
+          "termsText",
+          "ticketSalesMode",
+          "maxTicketsPerOrder"
+        ],
+        "properties": {
+          "expectedUpdatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "criticalChangeAccepted": {
+            "type": "boolean"
+          },
+          "criticalChangeConfirmation": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 160
+          },
+          "description": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 5000
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "time": {
+            "type": "string",
+            "pattern": "^\\d{2}:\\d{2}$"
+          },
+          "venueName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 160
+          },
+          "address": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 240
+          },
+          "city": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1
+          },
+          "contactEmail": {
+            "type": "string",
+            "format": "email"
+          },
+          "contactPhone": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "complaintsEmail": {
+            "type": "string",
+            "format": "email"
+          },
+          "ageRestriction": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "termsText": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 20000
+          },
+          "imageUrl": {
+            "type": "string"
+          },
+          "ticketSalesMode": {
+            "type": "string",
+            "enum": [
+              "PARALLEL",
+              "SEQUENTIAL_POOLS"
+            ]
+          },
+          "maxTicketsPerOrder": {
+            "description": "Accepted as a JSON integer or a decimal form string.",
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              {
+                "type": "string",
+                "pattern": "^(?:[1-9]|10)$"
+              }
+            ]
           }
         }
       }
