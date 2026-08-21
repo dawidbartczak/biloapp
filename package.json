@@ -5,8 +5,8 @@
   "packageManager": "pnpm@11.9.0",
   "scripts": {
     "api:contract": "node scripts/build-openapi.mjs",
-    "api:generate": "pnpm api:contract && openapi-typescript contracts/openapi.yaml -o frontend/lib/api/openapi.generated.ts && node scripts/sync-openapi.mjs",
-    "api:check": "pnpm api:generate && git diff --exit-code -- contracts/openapi.yaml frontend/lib/api/openapi.generated.ts backend/contracts/openapi.yaml backend/contracts/openapi.sha256"
+    "api:generate": "pnpm api:contract && BILO_OPENAPI_PATH=\"$PWD/contracts/openapi.yaml\" pnpm --dir frontend api:generate && node scripts/sync-openapi.mjs",
+    "api:check": "pnpm api:generate && git diff --exit-code -- contracts/openapi.yaml frontend/src/lib/api/openapi.generated.ts frontend/src/lib/api/openapi.sha256 backend/contracts/openapi.yaml backend/contracts/openapi.sha256"
   },
   "devDependencies": {
     "openapi-typescript": "7.13.0"
